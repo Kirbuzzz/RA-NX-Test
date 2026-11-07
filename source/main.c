@@ -31,9 +31,6 @@
 #include "ui.h"
 #include "util.h"
 
-int screen_width = 1280;
-int screen_height = 720;
-
 // ---------------------------------------------------------------------------
 // heap: se parte entre el heap de newlib y la region donde se carga el .so
 // (tal cual en gdash_nx / port de lbbg)
