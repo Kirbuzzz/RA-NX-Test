@@ -53,7 +53,17 @@ El resto se crea solo: `lib/libuaf.so`, `assets/`, `obb/`, `data/` (partidas y `
 | `screen_width`, `screen_height` | `-1` | resolucion; `-1` = 1280x720 portatil, 1920x1080 acoplado |
 | `autoplay` | `0` | `1` = si todo esta listo, entra al juego sin pulsar A |
 | `log_jni` | `1` | anota en el log cada llamada JNI desconocida (poner `0` cuando funcione) |
-| `log_imports` | `1` | anota `dlopen`, assets que faltan... (`2` vuelca el log de Android del motor) |
+| `log_imports` | `1` | anota `dlopen` y assets que faltan |
+| `log_engine` | `1` | vuelca al log lo que el motor imprime (UbiServices, etc.; con tope de lineas) |
+| `log_net` | `1` | anota a que servidores intenta conectar el motor (`getaddrinfo` / `connect`) |
+| `net_block` | `0` | `1` = los hosts de Ubisoft (`*.ubi.com`...) fallan al instante en vez de colgarse |
+| `connection_status` | `1` | lo que se le informa al motor: `0` sin red, `1` wifi, `2` datos moviles |
+
+## `patches.txt` (parches por nombre de funcion)
+
+Se crea una plantilla la primera vez. Permite hacer que una funcion de `libuaf.so` devuelva un valor (`ret 0 <nombre>`)
+o no haga nada (`void <nombre>`) **sin recompilar**; se aplican justo antes de que el codigo pase a ejecutable.
+Pensado para sortear el login de UbiServices (los servidores de Ubisoft ya no existen). Mira `docs/MOD_MENU.md`.
 
 ## Compilar (GitHub Actions)
 
