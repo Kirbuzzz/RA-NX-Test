@@ -33,3 +33,17 @@ Si el sistema muestra un error de "crash" de Horizon (codigo 2168-xxxx), apunta 
 - **Videos de intro**: `playMovie` devuelve 0 (omitido); si el motor espera su final, se quedara ahi.
 - **Teclado en pantalla**, GDPR, compras, anuncios, Google Play: desactivados/simulados.
 - **Audio**: Wwise sobre OpenSL emulado; la salida abre SDL2 al primer `SetPlayState(PLAYING)`.
+
+## Si el juego "carga" para siempre (la ruedita rosa de la esquina)
+
+El motor esta vivo (dibuja la ruedita), pero espera algo. Es casi seguro el login de UbiServices contra servidores de
+Ubisoft que ya no existen (ver `docs/MOD_MENU.md`). En el log busca:
+- `net: getaddrinfo(<host>, ...) -> N` y `net: connect a.b.c.d:puerto -> N`: **a quien** intenta hablar el motor.
+- `[android] ...`: lo que imprime el propio motor (UbiServices explica en que paso esta).
+- `frame N (M en los ultimos 5000 ms)`: si el bucle sigue corriendo o esta colgado.
+- `JNI sin implementar ...`: llamadas a Java sin modelar.
+
+Pruebas rapidas, una cada vez (edita `config.txt` y vuelve a abrir):
+1. `connection_status = 0`
+2. `net_block = 1`
+3. Parches en `patches.txt` (plantilla con ideas comentadas).
