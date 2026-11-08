@@ -19,6 +19,7 @@
 #include <stdarg.h>
 #include <string.h>
 #include <switch.h>
+#include <sys/stat.h>
 
 #include "config.h"
 #include "paths.h"
@@ -26,6 +27,7 @@
 #include "log.h"
 #include "jni_fake.h"
 #include "input.h"
+#include "prefs.h"
 
 #define JNI_OK 0
 #define JNI_VERSION_1_6 0x00010006
@@ -367,7 +369,79 @@ static const char *game_property(const char *key) {
   return "";
 }
 
+// GameActivity.PrepareFile(asset, destino): el SDK movil (MSDK) pide que un asset del apk exista en la carpeta
+// de datos (icon.pmg, msdk = su base de datos SQLite). Se copia desde assets/ si aun no esta.
+static void prepare_file(const char *src, const char *dst) {
+  if (!src || !dst) return;
+  while (*src == '/') src++;
+  while (*dst == '/') dst++;
+  char from[640], to[640];
+  snprintf(from, sizeof from, "%s/%s", path_assets(), src);
+  snprintf(to, sizeof to, "%s/%s", path_data(), dst);
+  struct stat st;
+  if (stat(to, &st) == 0 && st.st_size > 0)
+    return;
+  FILE *in = fopen(from, "rb");
+  if (!in) {
+    LOG("PrepareFile: no existe el asset '%s'", from);
+    return;
+  }
+  FILE *out = fopen(to, "wb");
+  if (!out) {
+    fclose(in);
+    LOG("PrepareFile: no se pudo crear '%s'", to);
+    return;
+  }
+  char buf[16384];
+  size_t n, total = 0;
+  while ((n = fread(buf, 1, sizeof buf, in)) > 0) {
+    fwrite(buf, 1, n, out);
+    total += n;
+  }
+  fclose(in);
+  fclose(out);
+  LOG("PrepareFile: %s -> %s (%u bytes)", from, to, (unsigned)total);
+}
+
+// identificador de dispositivo estable (UDUID de MobileAuth), generado una vez y guardado en prefs
+static const char *device_udid(void) {
+  const char *cur = prefs_get_string("__udid", "");
+  if (cur[0]) return cur;
+  char buf[40];
+  uint64_t t = armGetSystemTick();
+  uint32_t r[4];
+  for (int i = 0; i < 4; i++) {
+    t = t * 6364136223846793005ULL + 1442695040888963407ULL;
+    r[i] = (uint32_t)(t >> 32);
+  }
+  snprintf(buf, sizeof buf, "%08x-%04x-4%03x-a%03x-%04x%08x", r[0], r[1] & 0xffff, r[1] >> 20, r[2] & 0xfff, r[2] >> 16, r[3]);
+  prefs_set_string("__udid", buf);
+  return prefs_get_string("__udid", buf);
+}
+
+// "llavero" de Android (MSDK guarda ahi la clave de su base de datos): se guarda en prefs con prefijo "kc:"
+static const char *keychain_get(const char *key) {
+  char k[160];
+  snprintf(k, sizeof k, "kc:%s", key ? key : "");
+  return prefs_get_string(k, "");
+}
+static void keychain_set(const char *key, const char *value) {
+  char k[160];
+  snprintf(k, sizeof k, "kc:%s", key ? key : "");
+  prefs_set_string(k, value ? value : "");
+}
+
 static juint call_boolean(const char *name, const char *sig, va_list va) {
+  if (!strcmp(name, "keyChainSetValueForKey")) {
+    void *k = va_arg(va, void *);
+    void *v = va_arg(va, void *);
+    keychain_set(jni_string_utf(k), jni_string_utf(v));
+    return 1;
+  }
+  if (!strcmp(name, "keyChainRemoveValueForKey")) {
+    keychain_set(jni_string_utf(va_arg(va, void *)), "");
+    return 1;
+  }
   // GDPR/COPPA: se marca todo como ya mostrado/no aplica para no abrir dialogos de consentimiento
   if (!strcmp(name, "isGDPRAlreadyDisplayed") || !strcmp(name, "isCoppaAlreadyDisplayed")) return 1;
   if (!strcmp(name, "isCountryGdpr") || !strcmp(name, "getPlayerAnalyticsPreference") ||
@@ -396,6 +470,13 @@ static juint call_boolean(const char *name, const char *sig, va_list va) {
 
 static juint call_int(const char *name, va_list va) {
   (void)va;
+  // AudioTrack.getNativeOutputSampleRate(int): con 0 el motor repite la consulta cada frame y nunca termina de iniciar el audio
+  if (!strcmp(name, "getNativeOutputSampleRate")) {
+    static int once;
+    if (!once) { once = 1; LOG("audio: AudioTrack.getNativeOutputSampleRate -> 48000"); }
+    return 48000;
+  }
+  if (!strcmp(name, "getMinBufferSize")) return 4096;
   if (!strcmp(name, "getDeviceAPILevel")) return ANDROID_SDK_INT;
   if (!strcmp(name, "getProcessorCount")) return 4;
   if (!strcmp(name, "getCoppaPlayerAge")) return 18;
@@ -446,6 +527,12 @@ static void *call_object(const char *name, const char *sig, va_list va) {
   if (!strcmp(name, "GetMacAddress"))         return jni_make_string("02:00:00:00:00:00");
   if (!strcmp(name, "getCountryCode"))        return jni_make_string(country_code());
   if (!strcmp(name, "getCountryLangCodeForGDPR")) return jni_make_string(country_code());
+  if (!strcmp(name, "getPath") || !strcmp(name, "getFilePath")) return jni_make_string(path_data());   // File.getPath() de getFilesDir()
+  if (!strcmp(name, "getDeviceGameVersion")) return jni_make_string("3.9.95");
+  if (!strcmp(name, "getUDUID")) return jni_make_string(device_udid());
+  if (!strcmp(name, "getUserAgent")) return jni_make_string("RaymanAdventures/3.9.95 (Nintendo Switch; Android 21)");
+  if (!strcmp(name, "getUserName")) return jni_make_string("Player");
+  if (!strcmp(name, "keyChainGetDataForKey")) return jni_make_string(keychain_get(jni_string_utf(va_arg(va, void *))));
   if (!strcmp(name, "getProperty")) {
     void *key = va_arg(va, void *);
     return jni_make_string(game_property(jni_string_utf(key)));
@@ -464,6 +551,12 @@ static void *call_object(const char *name, const char *sig, va_list va) {
 static void call_void(const char *name, const char *sig, va_list va) {
   if (!strcmp(name, "getGamePadAxisValues")) {      // el motor pide los ejes: responde con nativeSetPadAxisValues
     input_pad_axis(va_arg(va, int));
+    return;
+  }
+  if (!strcmp(name, "PrepareFile")) {
+    void *a = va_arg(va, void *);
+    void *b = va_arg(va, void *);
+    prepare_file(jni_string_utf(a), jni_string_utf(b));
     return;
   }
   if (!strcmp(name, "exitTheGame") || !strcmp(name, "moveGameToBackGround")) {

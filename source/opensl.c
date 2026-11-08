@@ -141,6 +141,7 @@ static SLresult play_set_state(SLPlayItf self, SLuint32 state) {
   LOCK();
   o->playing = (state == SL_PLAYSTATE_PLAYING);
   UNLOCK();
+  LOG("opensl: SetPlayState(%u)", (unsigned)state);
   if (o->playing && !s_hook_fired && s_start_hook) { s_hook_fired = 1; s_start_hook(); }
   return SL_RESULT_SUCCESS;
 }
@@ -272,6 +273,7 @@ static SLresult eng_create_player(SLEngineItf self, SLObjectItf *pPlayer, SLData
 
   nx_obj *o = new_obj(OBJ_PLAYER);
   if (!o) return SL_RESULT_MEMORY_FAILURE;
+  LOG("opensl: CreateAudioPlayer %d canales, %d bits%s, %d Hz", ch, bits, is_float ? " (float)" : "", rate);
   o->channels = ch; o->bits = bits; o->is_float = is_float; o->rate = rate;
   o->bytes_per_frame = (unsigned)(ch * bits / 8);
 
@@ -292,6 +294,7 @@ SLresult slCreateEngine_nx(SLObjectItf *pEngine, SLuint32 numOptions, const void
   if (!pEngine) return SL_RESULT_PARAMETER_INVALID;
   nx_obj *o = new_obj(OBJ_ENGINE);
   if (!o) return SL_RESULT_MEMORY_FAILURE;
+  LOG("opensl: slCreateEngine");
   *pEngine = (SLObjectItf)o;
   return SL_RESULT_SUCCESS;
 }
