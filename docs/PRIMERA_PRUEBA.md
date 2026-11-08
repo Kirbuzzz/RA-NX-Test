@@ -47,3 +47,11 @@ Pruebas rapidas, una cada vez (edita `config.txt` y vuelve a abrir):
 1. `connection_status = 0`
 2. `net_block = 1`
 3. Parches en `patches.txt` (plantilla con ideas comentadas).
+
+## Lo que enseno el primer log real (v0.1)
+
+- El motor **si arranca**: monta el obb (encuentra todos los `*.ipk`), inicia MSDK y llega al bucle a 60 fps.
+- **No hubo ninguna conexion de red** (`net:` no aparece), asi que la ruedita no era el login de UbiServices.
+- Cada frame llamaba a `AudioTrack.getNativeOutputSampleRate` (devolviamos 0) -> ahora devuelve 48000.
+- MSDK no podia abrir su base de datos (`getFilesDir().getPath()` vacio y nadie copiaba el asset `msdk`) -> ahora
+  `getPath` devuelve la carpeta de datos y `PrepareFile` copia el asset; el llavero y el UDUID se guardan en `prefs.txt`.
