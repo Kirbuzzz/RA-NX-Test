@@ -30,7 +30,11 @@ typedef struct {
   int screen_height;
   int autoplay;         /* 1 = si todo esta listo, entra al juego sin pulsar A */
   int log_jni;          /* 1 = registra cada llamada JNI en el log (diagnostico) */
-  int log_imports;      /* 1 = registra funciones de importacion no resueltas */
+  int log_imports;      /* 1 = registra dlopen/assets que faltan */
+  int log_engine;       /* 1 = vuelca al log lo que el motor imprime por __android_log_print (UbiServices, etc.; con tope) */
+  int log_net;          /* 1 = registra cada getaddrinfo/connect del motor (a que servidores intenta hablar) */
+  int net_block;        /* 1 = los hosts de Ubisoft (*.ubi.com, *.ubisoft.com...) fallan al instante (DNS) */
+  int connection_status;/* lo que Java informa como conexion: 0 = sin red, 1 = wifi, 2 = datos moviles */
 } Config;
 
 extern Config config;

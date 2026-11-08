@@ -27,6 +27,7 @@
 #include "log.h"
 #include "opensl_nx.h"
 #include "paths.h"
+#include "patches.h"
 #include "pthr.h"
 #include "so_util.h"
 #include "ui.h"
@@ -130,6 +131,8 @@ void game_boot(int w, int h) {
       hook_arm64(cpuid, (uintptr_t)&ret0);
   }
 
+  patches_apply(&game_mod);                   /* parches por nombre (patches.txt): antes de que el codigo pase a RX */
+
   so_finalize(&game_mod);
   so_flush_caches(&game_mod);
 
@@ -161,7 +164,7 @@ void game_boot(int w, int h) {
   generic("setOSVersion", 0, 0.f, "21");
   generic("setCodeVersion", 0, 0.f, "2086");
   generic("setMultiAPKVersion", 0, 0.f, "2086");
-  generic("setConnectionStatus", 1, 0.f, "");
+  generic("setConnectionStatus", config.connection_status, 0.f, "");   // 0 sin red, 1 wifi, 2 datos
   generic("setPlayLicensing", 0, 0.f, "");
   generic("setEngineVersion", 277216, 0.f, "277216");
   generic("setDataVersion", 127897, 0.f, "127897");
@@ -210,9 +213,17 @@ int game_frame(void) {
   input_render_cursor();
   eglSwapBuffers(ui_egl_display(), ui_egl_surface());
 
+  /* latido: si el juego se queda "cargando", el log muestra si el bucle sigue vivo y a que ritmo */
   static int frames;
-  if (++frames == 1 || frames == 60 || frames == 600)
-    LOG("frame %d", frames);
+  static u64 last_ms;
+  frames++;
+  const u64 now_ms = armTicksToNs(armGetSystemTick()) / 1000000ULL;
+  if (frames == 1 || now_ms - last_ms >= 5000) {
+    static int last_frames;
+    LOG("frame %d (%d en los ultimos %llu ms)", frames, frames - last_frames, (unsigned long long)(last_ms ? now_ms - last_ms : 0));
+    last_frames = frames;
+    last_ms = now_ms;
+  }
   return 1;
 }
 

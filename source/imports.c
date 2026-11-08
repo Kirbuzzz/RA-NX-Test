@@ -64,8 +64,11 @@ extern void newlib_longjmp(void *env, int val) asm("longjmp");
 // ---------------------------------------------------------------------------
 
 static int __android_log_print_fake(int prio, const char *tag, const char *fmt, ...) {
-  (void)prio; (void)tag; (void)fmt;
-  return 0;
+  va_list ap;
+  va_start(ap, fmt);
+  const int r = __android_log_vprint_fake(prio, tag, fmt, ap);
+  va_end(ap);
+  return r;
 }
 
 // bionic clock(): microseconds of process time (CLOCKS_PER_SEC = 1000000)

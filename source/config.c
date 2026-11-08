@@ -19,7 +19,11 @@
   CONFIG_VAR_INT(screen_height); \
   CONFIG_VAR_INT(autoplay); \
   CONFIG_VAR_INT(log_jni); \
-  CONFIG_VAR_INT(log_imports);
+  CONFIG_VAR_INT(log_imports); \
+  CONFIG_VAR_INT(log_engine); \
+  CONFIG_VAR_INT(log_net); \
+  CONFIG_VAR_INT(net_block); \
+  CONFIG_VAR_INT(connection_status);
 
 Config config;
 
@@ -42,6 +46,10 @@ int read_config(const char *file) {
   config.autoplay = 0;
   config.log_jni = 1;        // por ahora ayuda a depurar: poner 0 cuando funcione
   config.log_imports = 1;
+  config.log_engine = 1;      // diagnostico: log interno del motor (con tope de lineas)
+  config.log_net = 1;
+  config.net_block = 0;
+  config.connection_status = 1;
 
   FILE *f = fopen(file, "r");
   if (f == NULL)

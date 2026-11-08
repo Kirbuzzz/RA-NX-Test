@@ -12,14 +12,29 @@
 #include "paths.h"
 #include "uaf_shims.h"
 
-/* el motor registra muchisimo: solo se vuelca al log con log_imports >= 2 */
+/* El motor (y UbiServices) registran mucho. Con log_engine = 1 se vuelca al log, colapsando repeticiones
+ * consecutivas y con un tope de lineas para no llenar la SD ni frenar el juego. */
+#define ANDROID_LOG_MAX_LINES 6000
+
 int __android_log_vprint_fake(int prio, const char *tag, const char *fmt, va_list ap) {
   (void)prio;
-  if (config.log_imports >= 2) {
-    char buf[512];
-    vsnprintf(buf, sizeof buf, fmt ? fmt : "", ap);
-    LOG("[android:%s] %s", tag ? tag : "?", buf);
+  if (!config.log_engine)
+    return 0;
+  static char last[400];
+  static int repeats, lines;
+  char buf[400];
+  vsnprintf(buf, sizeof buf, fmt ? fmt : "", ap);
+  char msg[430];
+  snprintf(msg, sizeof msg, "%s: %s", tag ? tag : "?", buf);
+  if (strcmp(msg, last) == 0) { repeats++; return 0; }
+  if (repeats) { LOG("[android] (el mensaje anterior se repitio %d veces)", repeats); repeats = 0; }
+  if (lines >= ANDROID_LOG_MAX_LINES) {
+    if (lines == ANDROID_LOG_MAX_LINES) { LOG("[android] log del motor truncado (tope de %d lineas)", ANDROID_LOG_MAX_LINES); lines++; }
+    return 0;
   }
+  lines++;
+  snprintf(last, sizeof last, "%s", msg);
+  LOG("[android] %s", msg);
   return 0;
 }
 

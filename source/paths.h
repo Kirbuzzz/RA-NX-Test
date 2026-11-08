@@ -23,6 +23,7 @@ const char *path_log(void);           // "<base>/data/log.txt"
 const char *path_config(void);        // "<base>/config.txt"
 const char *path_ca_bundle(void);     // "<base>/data/ca-firmware.pem" (exportado del firmware para el HTTPS del motor)
 const char *path_ca_user(void);       // "<base>/cacert.pem"           (el que usa el descargador; opcional)
+const char *path_patches(void);       // "<base>/patches.txt" (parches por nombre de funcion; ver patches.h)
 const char *path_so_game(void);       // "<base>/lib/libuaf.so"
 
 // Return the part after an Android app-private package directory, or NULL

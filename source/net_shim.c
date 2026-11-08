@@ -29,6 +29,9 @@
 #include "paths.h"
 #include "prefs.h"
 #include "libc_shim.h"
+#include <strings.h>
+#include "config.h"
+#include "log.h"
 #include "net_shim.h"
 
 static int net_up = 0;
@@ -353,6 +356,42 @@ static long socket_result_long(long result) {
 
 #define LINUX_SOCK_TYPE_MASK 0xf // strip SOCK_NONBLOCK/SOCK_CLOEXEC
 
+
+// ---- diagnostico: a que servidores intenta hablar el motor (UbiServices, servidor del juego...) ----
+static int host_is_ubisoft(const char *h) {
+  static const char *const suf[] = { "ubi.com", "ubisoft.com", "ubisoft.org", "uplay.com", "ubiservices.com" };
+  const size_t n = strlen(h);
+  for (size_t i = 0; i < sizeof suf / sizeof *suf; i++) {
+    const size_t m = strlen(suf[i]);
+    if (n >= m && strcasecmp(h + n - m, suf[i]) == 0 && (n == m || h[n - m - 1] == '.'))
+      return 1;
+  }
+  return 0;
+}
+
+static void log_host_once(const char *host, const char *service, int result) {
+  static char seen[48][96];
+  static int nseen;
+  for (int i = 0; i < nseen; i++)
+    if (strcmp(seen[i], host) == 0)
+      return;
+  if (nseen < 48)
+    snprintf(seen[nseen++], sizeof seen[0], "%s", host);
+  LOG("net: getaddrinfo(%s, %s) -> %d", host, service ? service : "-", result);
+}
+
+static void log_connect(const void *addr, unsigned addrlen, int r) {
+  static int count;
+  if (!config.log_net || count++ >= 80)
+    return;
+  const unsigned char *a = addr;
+  const unsigned short fam = *(const unsigned short *)a;
+  if (fam == 2 && addrlen >= 8)
+    LOG("net: connect %u.%u.%u.%u:%u -> %d", a[4], a[5], a[6], a[7], (a[2] << 8) | a[3], r);
+  else
+    LOG("net: connect familia %u (%u bytes) -> %d", fam, addrlen, r);
+}
+
 int socket_fake(int domain, int type, int protocol) {
   if (!net_up) { errno = EACCES; return -1; }
   const int nonblock = type & 0x800; // Linux SOCK_NONBLOCK
@@ -372,6 +411,7 @@ int connect_fake(int fd, const void *addr, unsigned addrlen) {
   int r = connect(fd, sa_to_bsd(addr, addrlen, &tmp), addrlen);
   if (r < 0)
     fixup_socket_errno();
+  log_connect(addr, addrlen, r < 0 ? errno : 0);
   return r;
 }
 
@@ -512,6 +552,10 @@ int setsockopt_fake(int fd, int level, int optname, const void *optval, unsigned
 int getaddrinfo_fake(const char *node, const char *service, const void *hints, void **res) {
   if (!net_up)
     return EAI_FAIL;
+  if (node && config.net_block && host_is_ubisoft(node)) {   // los servidores de Ubisoft ya no existen: falla al instante
+    if (config.log_net) log_host_once(node, service, -2);
+    return EAI_NONAME;
+  }
   struct addrinfo h, *bsd_hints = NULL;
   if (hints) {
     memcpy(&h, hints, sizeof(h));
@@ -527,6 +571,8 @@ int getaddrinfo_fake(const char *node, const char *service, const void *hints, v
   int r = getaddrinfo(node, service, bsd_hints, (struct addrinfo **)res);
   if (r == EAI_SYSTEM)
     fixup_socket_errno();
+  if (config.log_net && node)
+    log_host_once(node, service, r);
   if (r == 0 && res) {
     for (struct addrinfo *ai = *res; ai; ai = ai->ai_next) {
       ai->ai_family = family_to_linux((unsigned char)ai->ai_family);

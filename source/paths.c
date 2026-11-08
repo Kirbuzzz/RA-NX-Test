@@ -13,8 +13,8 @@
 
 #define OBB_FILE_NAME "main.2086.com.ubisoft.raymanadventures.obb"
 
-static char s_base[256], s_apk[288], s_assets[288], s_data[288], s_obb_dir[288], s_obb_file[320];
-static char s_prefs[300], s_log[300], s_config[288], s_ca_bundle[300], s_ca_user[288], s_so_game[300];
+static char s_base[256], s_apk[288], s_assets[288], s_data[288], s_obb_dir[288], s_obb_file[400];
+static char s_patches[288], s_prefs[300], s_log[300], s_config[288], s_ca_bundle[400], s_ca_user[288], s_so_game[300];
 
 // quita el prefijo "dispositivo:" y el ultimo componente "/<archivo>"
 static void dir_of(const char *in, char *out, size_t n) {
@@ -48,6 +48,7 @@ void paths_init(const char *argv0) {
   snprintf(s_data,      sizeof s_data,      "%s/data", s_base);
   snprintf(s_obb_dir,   sizeof s_obb_dir,   "%s/obb", s_base);
   snprintf(s_obb_file,  sizeof s_obb_file,  "%s/%s", s_obb_dir, OBB_FILE_NAME);
+  snprintf(s_patches,   sizeof s_patches,   "%s/patches.txt", s_base);
   snprintf(s_prefs,     sizeof s_prefs,     "%s/prefs.txt", s_data);
   snprintf(s_log,       sizeof s_log,       "%s/log.txt", s_data);
   snprintf(s_config,    sizeof s_config,    "%s/%s", s_base, CONFIG_NAME);
@@ -69,6 +70,7 @@ const char *path_config(void)    { return s_config; }
 const char *path_ca_bundle(void) { return s_ca_bundle; }
 const char *path_ca_user(void)   { return s_ca_user; }
 const char *path_so_game(void)   { return s_so_game; }
+const char *path_patches(void)   { return s_patches; }
 
 const char *path_android_private_suffix(const char *path) {
   static const char *roots[] = {
